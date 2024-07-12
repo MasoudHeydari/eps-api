@@ -5,14 +5,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/MasoudHeydari/eps-api/model"
-	"github.com/google/uuid"
 	"io"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/MasoudHeydari/eps-api/model"
+	"github.com/google/uuid"
 
 	"github.com/gocolly/colly"
 	"github.com/sirupsen/logrus"
@@ -28,9 +29,11 @@ type Agent struct {
 
 func NewAgent() *Agent {
 	phoneCollector := colly.NewCollector()
+	phoneCollector.AllowURLRevisit = true
 	phoneCollector.SetRequestTimeout(20 * time.Second)
 
 	keywordCollector := colly.NewCollector()
+	keywordCollector.AllowURLRevisit = true
 	keywordCollector.SetRequestTimeout(20 * time.Second)
 	return &Agent{
 		phoneCollector:   phoneCollector,
@@ -53,7 +56,7 @@ func (a *Agent) CreateJob(query model.Query) (uuid.UUID, error) {
 			"keyword":       query.Text,
 			"location_code": query.Location,
 			"language_code": query.LangCode,
-			"depth":         100,
+			"depth":         query.Depth,
 		},
 	}
 	var (
@@ -102,6 +105,54 @@ func (a *Agent) CreateJob(query model.Query) (uuid.UUID, error) {
 	logrus.Println("*********************************************************")
 	logrus.Println("*********************************************************")
 	return jobID, nil
+}
+
+func (a *Agent) PollJob(jobID uuid.UUID) ([]model.Item, error) {
+	u := fmt.Sprintf(
+		"https://api.dataforseo.com/v3/serp/google/organic/task_get/regular/%s",
+		jobID,
+	)
+	req, err := http.NewRequest(http.MethodGet, u, nil)
+	if err != nil {
+		return nil, fmt.Errorf("PollJob.http.NewRequest: %w", err)
+	}
+
+	// Set the headers
+	token := base64.StdEncoding.EncodeToString([]byte("m.heydari4883@gmail.com:22599da38215faea"))
+	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", token))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("PollJob.a.client.Do: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("PollJob.client.Do.StatusCode: unintended staus code %d", resp.StatusCode)
+	}
+
+	var apiResponse model.APIResponse
+	err = json.NewDecoder(resp.Body).Decode(&apiResponse)
+	if err != nil {
+		return nil, fmt.Errorf("PollJob.json.NewDecoder.Decode: %w", err)
+	}
+
+	if len(apiResponse.Tasks) == 0 {
+		logrus.Infof("PollJob: length of apiResponse.Tasks is zero for job id %s", jobID)
+		return nil, fmt.Errorf("PollJob: no item found for job id %s", jobID)
+	}
+	if len(apiResponse.Tasks[0].Result) == 0 {
+		logrus.Infof("PollJob: length of apiResponse.Tasks[0].Result is zero for job id %s", jobID)
+		return nil, fmt.Errorf("PollJob: no item found for job id %s", jobID)
+	}
+	if len(apiResponse.Tasks[0].Result[0].Items) == 0 {
+		logrus.Infof("PollJob: length of apiResponse.Tasks[0].Result[0].Items is zero for job id %s", jobID)
+		return nil, fmt.Errorf("PollJob: no item found for job id %s", jobID)
+	}
+	logrus.Println("*********************************************************")
+	logrus.Info("PollJob: Total result found: ", len(apiResponse.Tasks[0].Result[0].Items))
+	logrus.Println("*********************************************************")
+	return apiResponse.Tasks[0].Result[0].Items, nil
 }
 
 func (a *Agent) extractKeywords(path string) ([]string, error) {
