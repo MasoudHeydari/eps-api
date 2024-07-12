@@ -1,0 +1,21 @@
+{
+  "version" : "0.1.0",
+  "http" : {
+    "listen": "127.0.0.1",
+    "port": "9999"
+  },
+  "limiter" : {
+    "interval_minutes": 60,
+    "burst": 1
+  },
+  "database": {
+    "schema": "postgres",
+    "host" : "eps_db",
+    "port": 5432,
+    "name" : "eps_db",
+    "user": "eps_user",
+    "password": "eps_password",
+    "raw_query": "sslmode=disable"
+  },
+  "query_depth": 500
+}
