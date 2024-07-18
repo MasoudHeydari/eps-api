@@ -24,8 +24,9 @@ type Database struct {
 }
 
 type Limiter struct {
-	IntervalMinutes int `json:"interval_minutes"`
-	Burst           int `json:"burst"`
+	Hour 	uint `json:"hour"`
+	Minute 	uint `json:"minute"`
+	Burst   int `json:"burst"`
 }
 
 func New() App {

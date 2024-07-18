@@ -12,10 +12,11 @@ import (
 
 func (s *Server) CreateJob(c echo.Context) error {
 	//  curl -X POST -w "%{http_code}\n" http://localhost:9999/api/v1/search -H "Content-Type: application/json" -d '{"loc": "NL", "lang": "En", "q": "Golang"}'
-	if !s.limiter.Allow() {
+	if !s.isAllowed() {
 		logrus.Info("rate limit exceeded")
 		return c.JSON(http.StatusTooManyRequests, echo.Map{"details": "rate limit exceeded"})
 	}
+	s.increaseCounter()
 	sq := new(searchQ)
 	if err := c.Bind(sq); err != nil {
 		return c.JSON(http.StatusBadRequest, err)

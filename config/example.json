@@ -1,12 +1,13 @@
 {
   "version" : "0.1.0",
   "http" : {
-    "listen": "127.0.0.1",
+    "listen": "0.0.0.0",
     "port": "9999"
   },
   "limiter" : {
-    "interval_minutes": 60,
-    "burst": 1
+    "hour":  23,
+    "minute": 59,
+    "burst": 6
   },
   "database": {
     "schema": "postgres",

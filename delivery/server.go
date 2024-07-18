@@ -2,22 +2,24 @@ package delivery
 
 import (
 	"fmt"
-	"time"
+	"sync"
 
+	"github.com/go-co-op/gocron/v2"
 	"github.com/MasoudHeydari/eps-api/config"
 	"github.com/MasoudHeydari/eps-api/db"
 	"github.com/MasoudHeydari/eps-api/ent"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/time/rate"
 )
 
 type Server struct {
 	db         *ent.Client
 	agent      *Agent
-	limiter    *rate.Limiter
 	queryDepth int
+	limit int
+	counter int
+	mutex sync.Mutex
 }
 
 func Start(cfgPath string) error {
@@ -34,10 +36,12 @@ func Start(cfgPath string) error {
 		db:         client,
 		agent:      NewAgent(),
 		queryDepth: app.QueryDepth,
-		limiter: rate.NewLimiter(
-			rate.Every(time.Duration(app.Limiter.IntervalMinutes)*time.Minute),
-			app.Limiter.Burst,
-		),
+		counter: 0,
+		limit: app.Limiter.Burst,
+	}
+	err = server.setCron(app.Limiter.Hour, app.Limiter.Minute)
+	if err != nil {
+		return 	fmt.Errorf("start: failed to create the cron job: %w", err)
 	}
 	e := echo.New()
 	e.HideBanner = true
@@ -48,5 +52,58 @@ func Start(cfgPath string) error {
 	e.GET("/api/v1/export/:sq_id", server.ExportCSV)
 	e.GET("/api/v1/search", server.GetAllSearchQueries)
 	go server.PollJob()
-	return e.Start(":9999")
+	httpAddress := fmt.Sprintf("%s:%s", app.Http.Listen, app.Http.Port)
+	return e.Start(httpAddress)
+}
+
+func (s *Server) setCron(hour, minute uint) error {
+	// create a scheduler
+	scheduler, err := gocron.NewScheduler()
+	if err != nil {
+		return fmt.Errorf("setCron: %w", err)
+	}
+	// add a job to the scheduler
+	j, err := scheduler.NewJob(
+		gocron.DailyJob(
+			1,
+			gocron.NewAtTimes(
+				gocron.NewAtTime(
+					hour,
+					minute,
+					00,
+				),
+			),
+		),
+		gocron.NewTask(
+			func() {
+				s.resetLimiterCounter()
+			},
+		),
+	)
+	if err != nil {
+		return fmt.Errorf("setCron: %w", err)
+	}
+	scheduler.Start()
+	logrus.Info("cron job started with ID: ", j.ID())
+	return nil
+}
+
+func (s *Server) isAllowed() bool {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	return s.counter < s.limit
+}
+
+func (s *Server) increaseCounter() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.counter++
+}
+
+
+func (s *Server) resetLimiterCounter() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.counter = 0
+	logrus.Info("rate limit reset")
 }
