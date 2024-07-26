@@ -4,22 +4,23 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/go-co-op/gocron/v2"
 	"github.com/MasoudHeydari/eps-api/config"
 	"github.com/MasoudHeydari/eps-api/db"
 	"github.com/MasoudHeydari/eps-api/ent"
+	"github.com/go-co-op/gocron/v2"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/sirupsen/logrus"
 )
 
 type Server struct {
-	db         *ent.Client
-	agent      *Agent
-	queryDepth int
-	limit int
-	counter int
-	mutex sync.Mutex
+	db             *ent.Client
+	agent          *Agent
+	queryDepth     int
+	limit          int
+	counter        int
+	fileNameMaxLen int
+	mutex          sync.Mutex
 }
 
 func Start(cfgPath string) error {
@@ -33,15 +34,16 @@ func Start(cfgPath string) error {
 		return fmt.Errorf("failed to connect to DB, error: %v", err)
 	}
 	server := Server{
-		db:         client,
-		agent:      NewAgent(),
-		queryDepth: app.QueryDepth,
-		counter: 0,
-		limit: app.Limiter.Burst,
+		db:             client,
+		agent:          NewAgent(),
+		queryDepth:     app.QueryDepth,
+		counter:        0,
+		fileNameMaxLen: app.FileNameMaxLen,
+		limit:          app.Limiter.Burst,
 	}
 	err = server.setCron(app.Limiter.Hour, app.Limiter.Minute)
 	if err != nil {
-		return 	fmt.Errorf("start: failed to create the cron job: %w", err)
+		return fmt.Errorf("start: failed to create the cron job: %w", err)
 	}
 	e := echo.New()
 	e.HideBanner = true
@@ -99,7 +101,6 @@ func (s *Server) increaseCounter() {
 	defer s.mutex.Unlock()
 	s.counter++
 }
-
 
 func (s *Server) resetLimiterCounter() {
 	s.mutex.Lock()

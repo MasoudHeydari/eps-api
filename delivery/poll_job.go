@@ -2,11 +2,11 @@ package delivery
 
 import (
 	"context"
-	"github.com/MasoudHeydari/eps-api/model"
 	"time"
 
 	"github.com/MasoudHeydari/eps-api/db"
 	"github.com/MasoudHeydari/eps-api/ent"
+	"github.com/MasoudHeydari/eps-api/model"
 	"github.com/sirupsen/logrus"
 )
 
@@ -27,9 +27,19 @@ func (s *Server) PollJob() {
 			}
 			continue
 		}
-		items, err := s.agent.PollJob(jobID)
+		items, shouldCancelTheJob, err := s.agent.PollJob(jobID)
 		if err != nil {
 			logrus.Info("server.PollJob.agent.PollJob: error fetching api responses", err)
+			if shouldCancelTheJob {
+				err = db.CancelSQ(ctx, s.db, sqID)
+				if err != nil {
+					logrus.Info(
+						"server.PollJob.CancelSQ: failed to finish sqid",
+						"sq_id", sqID,
+						"error", err,
+					)
+				}
+			}
 			continue
 		}
 		for _, item := range items {

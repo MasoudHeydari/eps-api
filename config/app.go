@@ -1,11 +1,12 @@
 package config
 
 type App struct {
-	Version    string   `json:"version"`
-	Http       HTTP     `json:"http"`
-	Limiter    Limiter  `json:"limiter"`
-	DB         Database `json:"database"`
-	QueryDepth int      `json:"query_depth"`
+	Version        string   `json:"version"`
+	Http           HTTP     `json:"http"`
+	Limiter        Limiter  `json:"limiter"`
+	DB             Database `json:"database"`
+	QueryDepth     int      `json:"query_depth"`
+	FileNameMaxLen int      `json:"file_name_max_len"`
 }
 
 type HTTP struct {
@@ -24,9 +25,9 @@ type Database struct {
 }
 
 type Limiter struct {
-	Hour 	uint `json:"hour"`
-	Minute 	uint `json:"minute"`
-	Burst   int `json:"burst"`
+	Hour   uint `json:"hour"`
+	Minute uint `json:"minute"`
+	Burst  int  `json:"burst"`
 }
 
 func New() App {

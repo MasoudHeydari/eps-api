@@ -4,9 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
+
 	"github.com/MasoudHeydari/eps-api/ent"
 	"github.com/MasoudHeydari/eps-api/ent/searchquery"
-	"time"
 )
 
 const (
@@ -14,7 +15,7 @@ const (
 	csvAbsPathInEPSContainer      = "/tmp/eps/db/csv/export.csv"
 )
 
-func ExportCSV(ctx context.Context, db *ent.Client, sqID int) (csvAbsFilePath, fileName string, err error) {
+func ExportCSV(ctx context.Context, db *ent.Client, sqID, fileNameMaxlen int) (csvAbsFilePath, fileName string, err error) {
 	tx, err := db.BeginTx(ctx, &sql.TxOptions{})
 	if err != nil {
 		return "", "", fmt.Errorf("starting a transaction: %w", err)
@@ -23,7 +24,12 @@ func ExportCSV(ctx context.Context, db *ent.Client, sqID int) (csvAbsFilePath, f
 	if err != nil {
 		return "", "", rollback(tx, err)
 	}
-	csvFileName := fmt.Sprintf("%s-%s.csv", entSq.Query, time.Now().Format("2006-01-02_15:04:05"))
+	var csvFileName string
+	if len(entSq.Query) > fileNameMaxlen {
+		csvFileName = fmt.Sprintf("%s...-%s.csv", entSq.Query[:fileNameMaxlen], time.Now().Format("2006-01-02_15:04:05"))
+	} else {
+		csvFileName = fmt.Sprintf("%s-%s.csv", entSq.Query, time.Now().Format("2006-01-02_15:04:05"))
+	}
 	q := fmt.Sprintf(`COPY (
 		SELECT
 			serps.url,

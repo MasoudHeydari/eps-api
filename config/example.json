@@ -18,5 +18,6 @@
     "password": "eps_password",
     "raw_query": "sslmode=disable"
   },
-  "query_depth": 500
+  "query_depth": 500,
+  "file_name_max_len": 100
 }

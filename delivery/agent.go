@@ -107,14 +107,14 @@ func (a *Agent) CreateJob(query model.Query) (uuid.UUID, error) {
 	return jobID, nil
 }
 
-func (a *Agent) PollJob(jobID uuid.UUID) ([]model.Item, error) {
+func (a *Agent) PollJob(jobID uuid.UUID) ([]model.Item, bool, error) {
 	u := fmt.Sprintf(
 		"https://api.dataforseo.com/v3/serp/google/organic/task_get/regular/%s",
 		jobID,
 	)
 	req, err := http.NewRequest(http.MethodGet, u, nil)
 	if err != nil {
-		return nil, fmt.Errorf("PollJob.http.NewRequest: %w", err)
+		return nil, false, fmt.Errorf("PollJob.http.NewRequest: %w", err)
 	}
 
 	// Set the headers
@@ -124,35 +124,36 @@ func (a *Agent) PollJob(jobID uuid.UUID) ([]model.Item, error) {
 
 	resp, err := a.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("PollJob.a.client.Do: %w", err)
+		return nil, false, fmt.Errorf("PollJob.a.client.Do: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("PollJob.client.Do.StatusCode: unintended staus code %d", resp.StatusCode)
+		return nil, false, fmt.Errorf("PollJob.client.Do.StatusCode: unintended staus code %d", resp.StatusCode)
 	}
 
 	var apiResponse model.APIResponse
 	err = json.NewDecoder(resp.Body).Decode(&apiResponse)
 	if err != nil {
-		return nil, fmt.Errorf("PollJob.json.NewDecoder.Decode: %w", err)
+		return nil, false, fmt.Errorf("PollJob.json.NewDecoder.Decode: %w", err)
 	}
 
 	if len(apiResponse.Tasks) == 0 {
-		logrus.Infof("PollJob: length of apiResponse.Tasks is zero for job id %s", jobID)
-		return nil, fmt.Errorf("PollJob: no item found for job id %s", jobID)
+		return nil, false, fmt.Errorf("PollJob: len(apiResponse.Tasks) == 0,  no item found for job id %s", jobID)
+	}
+	if apiResponse.Tasks[0].StatusCode == 40102 {
+		// means this job id has not any result
+		return nil, true, fmt.Errorf("PollJob: there is no result for job id %s - status code is 40102", jobID)
 	}
 	if len(apiResponse.Tasks[0].Result) == 0 {
-		logrus.Infof("PollJob: length of apiResponse.Tasks[0].Result is zero for job id %s", jobID)
-		return nil, fmt.Errorf("PollJob: no item found for job id %s", jobID)
+		return nil, false, fmt.Errorf("PollJob: len(apiResponse.Tasks[0].Result) == 0, no item found for job id %s", jobID)
 	}
 	if len(apiResponse.Tasks[0].Result[0].Items) == 0 {
-		logrus.Infof("PollJob: length of apiResponse.Tasks[0].Result[0].Items is zero for job id %s", jobID)
-		return nil, fmt.Errorf("PollJob: no item found for job id %s", jobID)
+		return nil, false, fmt.Errorf("PollJob: len(apiResponse.Tasks[0].Result[0].Items) == 0, no item found for job id %s", jobID)
 	}
 	logrus.Println("*********************************************************")
 	logrus.Info("PollJob: Total result found: ", len(apiResponse.Tasks[0].Result[0].Items))
 	logrus.Println("*********************************************************")
-	return apiResponse.Tasks[0].Result[0].Items, nil
+	return apiResponse.Tasks[0].Result[0].Items, false, nil
 }
 
 func (a *Agent) extractKeywords(path string) ([]string, error) {
