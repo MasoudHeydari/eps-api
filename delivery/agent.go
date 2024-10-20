@@ -21,13 +21,14 @@ import (
 )
 
 type Agent struct {
+	APIKey                          string
 	phoneCollector                  *colly.Collector
 	keywordCollector                *colly.Collector
 	findPhoneRegexp, findEmailRegex *regexp.Regexp
 	client                          *http.Client
 }
 
-func NewAgent() *Agent {
+func NewAgent(apiKey string) *Agent {
 	phoneCollector := colly.NewCollector()
 	phoneCollector.AllowURLRevisit = true
 	phoneCollector.SetRequestTimeout(20 * time.Second)
@@ -36,6 +37,7 @@ func NewAgent() *Agent {
 	keywordCollector.AllowURLRevisit = true
 	keywordCollector.SetRequestTimeout(20 * time.Second)
 	return &Agent{
+		APIKey:           apiKey,
 		phoneCollector:   phoneCollector,
 		keywordCollector: keywordCollector,
 		findPhoneRegexp:  regexp.MustCompile(`(?:[-+() ]*\d){10,13}`),
@@ -81,7 +83,7 @@ func (a *Agent) CreateJob(query model.Query) (uuid.UUID, error) {
 	}
 
 	// Set the headers
-	token := base64.StdEncoding.EncodeToString([]byte("m.heydari4883@gmail.com:22599da38215faea"))
+	token := base64.StdEncoding.EncodeToString([]byte(a.APIKey))
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", token))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -118,7 +120,7 @@ func (a *Agent) PollJob(jobID uuid.UUID) ([]model.Item, bool, error) {
 	}
 
 	// Set the headers
-	token := base64.StdEncoding.EncodeToString([]byte("m.heydari4883@gmail.com:22599da38215faea"))
+	token := base64.StdEncoding.EncodeToString([]byte(a.APIKey))
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", token))
 	req.Header.Set("Content-Type", "application/json")
 

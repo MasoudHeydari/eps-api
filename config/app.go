@@ -7,6 +7,7 @@ type App struct {
 	DB             Database `json:"database"`
 	QueryDepth     int      `json:"query_depth"`
 	FileNameMaxLen int      `json:"file_name_max_len"`
+	APIKey         string   `json:"api_key"`
 }
 
 type HTTP struct {

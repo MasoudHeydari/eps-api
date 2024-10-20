@@ -35,7 +35,7 @@ func Start(cfgPath string) error {
 	}
 	server := Server{
 		db:             client,
-		agent:          NewAgent(),
+		agent:          NewAgent(app.APIKey),
 		queryDepth:     app.QueryDepth,
 		counter:        0,
 		fileNameMaxLen: app.FileNameMaxLen,

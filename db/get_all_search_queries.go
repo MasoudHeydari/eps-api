@@ -8,9 +8,12 @@ import (
 	"github.com/MasoudHeydari/eps-api/model"
 )
 
-func GetAllSearchQueries(ctx context.Context, db *ent.Client) ([]model.SearchQuery, error) {
+func GetAllSearchQueries(ctx context.Context, db *ent.Client, page int) ([]model.SearchQuery, error) {
+	offSet := page * 5
 	entSearchQueries, err := db.SearchQuery.Query().
-		Order(searchquery.ByID()).
+		Offset(offSet).
+		Limit(5).
+		Order(ent.Desc(searchquery.FieldID)).
 		All(ctx)
 	if err != nil {
 		return nil, err

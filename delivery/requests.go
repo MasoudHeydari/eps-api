@@ -15,6 +15,10 @@ type GetAllSearchResults struct {
 	Page int `query:"page"`
 }
 
+type GetAllSearchQueries struct {
+	Page int `query:"page"`
+}
+
 type ExportCSV struct {
 	SQID int `param:"sq_id"` // SQID is CreateJob Query ID
 }
